@@ -20,7 +20,7 @@ namespace RNA
     class Program
     {
         private static Assembly assembly = Assembly.GetExecutingAssembly();
-        private static List<IMLData> patterns = new List<IMLData>();
+        private static List<BiPolarMLData> patterns = new List<BiPolarMLData>();
 
         static void Main(string[] args)
         {
@@ -35,6 +35,7 @@ namespace RNA
         private static void train()
         {
             loadPatterns();
+            BiPolarMLData test = getPattern("RNA.Test.01.png");
             HopfieldNetwork network = new HopfieldNetwork(patterns.First().Count);
 
             foreach (var pattern in patterns)
@@ -42,8 +43,10 @@ namespace RNA
                 network.AddPattern(pattern);
             }
 
-            var result = network.Compute(patterns.First());
-            createImage(result as BiPolarMLData);
+            network.CurrentState = test;
+            int cycles = network.RunUntilStable(10000);
+            BiPolarMLData result = network.CurrentState;
+            createImage(result);
             //EncogDirectoryPersistence.SaveObject(new FileInfo("network"), network);
         }
 
@@ -62,20 +65,23 @@ namespace RNA
 
             for(int i=0; i<letters.Length; i++)
             {
-                var pattern = getPattern(letters[i]);
-                patterns.Add(pattern);
+                if(letters[i].Contains("Letters"))
+                {
+                    var pattern = getPattern(letters[i]);
+                    patterns.Add(pattern);
+                }
             }
         }
 
-        private static IMLData getPattern(string filename)
+        private static BiPolarMLData getPattern(string filename)
         {
             BiPolarMLData pattern;
             int item = 0;
 
             using (Stream stream = assembly.GetManifestResourceStream(filename))
             using (Bitmap image = new Bitmap(stream))
-            {             
-                bool[] rawdata = new bool[image.Width * image.Height];
+            {
+                pattern = new BiPolarMLData(image.Width * image.Height);
 
                 for (int x = 0; x < image.Width; x++)
                 {
@@ -84,13 +90,11 @@ namespace RNA
                         Color color = image.GetPixel(x, y);
 
                         if (color.ToArgb() != Color.White.ToArgb())
-                            rawdata[item++] = true;
+                            pattern.SetBoolean(item++, true);
                         else
-                            rawdata[item++] = false;
+                            pattern.SetBoolean(item++, false);
                     }
                 }
-
-                pattern = new BiPolarMLData(rawdata);
             }
 
             return pattern;
